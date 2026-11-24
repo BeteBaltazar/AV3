@@ -1,0 +1,237 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+}
+
+enum PapelUsuario {
+  ADMINISTRADOR
+  OPERADOR_CADASTRO
+  GESTOR_ALMOXARIFADO
+  AUDITOR
+}
+
+enum EstadoFisico {
+  NOVO
+  BOM_ESTADO
+  USADO_LEVE
+  USADO_MODERADO
+  DANIFICADO_LEVE
+  DANIFICADO_GRAVE
+  INSERVIVEL
+}
+
+enum StatusRastreamento {
+  AGUARDANDO_TRIAGEM
+  EM_TRIAGEM
+  AGUARDANDO_DESMONTE
+  EM_DESMONTE
+  PECAS_REAPROVEITADAS
+  MATERIAL_RECICLAVEL
+  DESCARTE_SEGURO
+  BAIXA_DEFINITIVA
+}
+
+enum StatusLote {
+  RECEBIDO
+  EM_TRIAGEM
+  TRIAGEM_CONCLUIDA
+  ENCAMINHADO
+  FINALIZADO
+}
+
+enum TipoEquipamento {
+  COMPUTADOR_MESA
+  NOTEBOOK
+  MONITOR
+  IMPRESSORA
+  SERVIDOR
+  ROTEADOR
+  CABO_ESTRUTURADO
+  FONTE_ALIMENTACAO
+}
+
+model Organizacao {
+  id                String     @id @default(uuid())
+  razaoSocial       String
+  cnpj              String
+  cnpjNormalizado   String     @unique
+  inscricaoEstadual String
+  enderecoCompleto  String
+  telefone          String
+  email             String
+  dataCadastro      DateTime   @default(now()) @db.Timestamptz(3)
+  ativo             Boolean    @default(true)
+  contratoVigente   Boolean    @default(false)
+  version           Int        @default(1)
+  contrato          Contrato?
+  lotes             Lote[]
+  parceiros         Parceiro[]
+}
+
+model Contrato {
+  id                  String      @id @default(uuid())
+  organizacaoId       String      @unique
+  dataAssinatura      DateTime    @db.Timestamptz(3)
+  dataVencimento      DateTime    @db.Timestamptz(3)
+  clausulas           String
+  valorMensal         Float
+  renovacaoAutomatica Boolean
+  version             Int         @default(1)
+  organizacao         Organizacao @relation(fields: [organizacaoId], references: [id], onDelete: Restrict, onUpdate: Cascade)
+}
+
+model Lote {
+  id                  String        @id @default(uuid())
+  dataEntrada         DateTime      @db.Timestamptz(3)
+  organizacaoId       String
+  notaFiscal          String
+  transportadora      String
+  statusProcessamento StatusLote    @default(RECEBIDO)
+  observacoes         String        @default("")
+  version             Int           @default(1)
+  organizacao         Organizacao   @relation(fields: [organizacaoId], references: [id], onDelete: Restrict, onUpdate: Cascade)
+  equipamentos        Equipamento[]
+
+  @@index([organizacaoId, dataEntrada])
+}
+
+model Equipamento {
+  id                       String                  @id @default(uuid())
+  codigoBarrasInterno      String                  @unique
+  tipo                     TipoEquipamento
+  marca                    String
+  modelo                   String
+  anoFabricacao            Int
+  estadoFisico             EstadoFisico            @default(NOVO)
+  pesoQuilogramas          Float
+  valorEstimadoRecuperacao Float?
+  valorRecuperacaoReal     Float?
+  loteId                   String?
+  posicaoNoLote            Int                     @default(0)
+  statusRastreamento       StatusRastreamento      @default(AGUARDANDO_TRIAGEM)
+  version                  Int                     @default(1)
+  lote                     Lote?                   @relation(fields: [loteId], references: [id], onDelete: Restrict, onUpdate: Cascade)
+  historicoMovimentacao    Movimentacao[]
+  historicoEstados         HistoricoEstadoFisico[]
+
+  @@index([loteId, posicaoNoLote])
+  @@index([statusRastreamento])
+}
+
+model HistoricoEstadoFisico {
+  id            String       @id @default(uuid())
+  equipamentoId String
+  dataHora      DateTime     @default(now()) @db.Timestamptz(3)
+  estadoFisico  EstadoFisico
+  justificativa String       @default("")
+  responsavel   String       @default("")
+  equipamento   Equipamento  @relation(fields: [equipamentoId], references: [id], onDelete: Cascade, onUpdate: Cascade)
+
+  @@index([equipamentoId, dataHora])
+}
+
+model ResultadoAnalise {
+  id              String           @id @default(uuid())
+  tarefaId        String?          @unique
+  categoria       String
+  dataInicio      DateTime?        @db.Timestamptz(3)
+  dataFim         DateTime?        @db.Timestamptz(3)
+  metodo          String
+  dadosUtilizados Json
+  resultado       Json
+  observacoes     String           @default("")
+  realizadoEm     DateTime         @default(now()) @db.Timestamptz(3)
+  parceiroId      String?
+  organizacaoId   String?
+  tarefa          TarefaRelatorio? @relation(fields: [tarefaId], references: [id], onDelete: SetNull, onUpdate: Cascade)
+
+  @@index([categoria, realizadoEm])
+  @@index([parceiroId, realizadoEm])
+  @@index([organizacaoId, realizadoEm])
+}
+
+model Parceiro {
+  id                String       @id @default(uuid())
+  nome              String
+  organizacaoId     String?
+  permissoes        Json         @default("[]")
+  ativo             Boolean      @default(true)
+  limiteRequisicoes Int          @default(100)
+  janelaLimiteSeg   Int          @default(60)
+  dataCadastro      DateTime     @default(now()) @db.Timestamptz(3)
+  organizacao       Organizacao? @relation(fields: [organizacaoId], references: [id], onDelete: SetNull, onUpdate: Cascade)
+  chaves            ChaveApi[]
+
+  @@index([ativo])
+}
+
+model ChaveApi {
+  id         String    @id @default(uuid())
+  parceiroId String
+  chaveHash  String    @unique
+  prefixo    String
+  ativa      Boolean   @default(true)
+  ultimoUso  DateTime? @db.Timestamptz(3)
+  revogadaEm DateTime? @db.Timestamptz(3)
+  criadaEm   DateTime  @default(now()) @db.Timestamptz(3)
+  parceiro   Parceiro  @relation(fields: [parceiroId], references: [id], onDelete: Cascade, onUpdate: Cascade)
+
+  @@index([parceiroId, ativa])
+  @@index([prefixo])
+}
+
+model TarefaRelatorio {
+  id            String            @id @default(uuid())
+  parceiroId    String
+  organizacaoId String?
+  categoria     String
+  formato       String
+  status        String
+  tentativas    Int               @default(0)
+  tentativasMax Int               @default(3)
+  dadosEntrada  Json
+  arquivoUrl    String?
+  ultimaFalha   String?
+  criadoEm      DateTime          @default(now()) @db.Timestamptz(3)
+  iniciadoEm    DateTime?         @db.Timestamptz(3)
+  concluidoEm   DateTime?         @db.Timestamptz(3)
+  resultado     ResultadoAnalise?
+
+  @@index([parceiroId, criadoEm])
+  @@index([status, criadoEm])
+}
+
+model Movimentacao {
+  id            String      @id @default(uuid())
+  equipamentoId String
+  dataHora      DateTime    @default(now()) @db.Timestamptz(3)
+  origem        String
+  destino       String
+  responsavel   String
+  observacao    String      @default("")
+  version       Int         @default(1)
+  equipamento   Equipamento @relation(fields: [equipamentoId], references: [id], onDelete: Restrict, onUpdate: Cascade)
+
+  @@index([equipamentoId, dataHora])
+}
+
+model Usuario {
+  id           String       @id @default(uuid())
+  usuario      String       @unique
+  senhaHash    String
+  senhaSalt    String
+  hashScheme   String       @default("scrypt-v1")
+  papel        PapelUsuario
+  ultimoAcesso DateTime?    @db.Timestamptz(3)
+  version      Int          @default(1)
+}
+
+model ParametrosGlobais {
+  id                     String @id @default("parametros-globais")
+  aliquotasImpostos      Json   @default("{}")
+  coeficienteDepreciacao Float  @default(0.08)
+  version                Int    @default(1)
+}

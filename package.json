@@ -1,0 +1,50 @@
+{
+  "name": "greencode",
+  "version": "0.1.0",
+  "description": "CLI para operacao de uma plataforma de logistica reversa de residuos e equipamentos eletronicos.",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "build": "tsc -p tsconfig.json",
+    "start": "node dist/main.js",
+    "dev": "tsx src/main.ts",
+    "start:api": "node dist/api/server.js",
+    "dev:api": "tsx src/api/server.ts",
+    "dev:worker": "tsx src/queue/reportWorker.ts",
+    "prisma:generate": "prisma generate",
+    "prisma:migrate": "prisma migrate dev",
+    "prisma:deploy": "prisma migrate deploy",
+    "prisma:seed": "prisma db seed",
+    "prisma:create-admin": "tsx prisma/create-admin.ts",
+    "api:import-legacy-data": "tsx src/api/import-legacy-data.ts",
+    "check": "tsc -p tsconfig.json --noEmit",
+    "test": "tsx --test test/**/*.test.ts"
+  },
+  "engines": {
+    "node": ">=20.19"
+  },
+  "devDependencies": {
+    "@types/node": "^26.6.2",
+    "prisma": "^7.10.1",
+    "tsx": "^4.23.15",
+    "typescript": "^7.0.2"
+  },
+  "dependencies": {
+    "@fastify/jwt": "^10.2.5",
+    "@fastify/rate-limit": "^11.3.0",
+    "@fastify/swagger": "^9.9.2",
+    "@fastify/swagger-ui": "^6.1.2",
+    "@prisma/adapter-pg": "^7.10.1",
+    "@prisma/client": "^7.10.1",
+    "dotenv": "^18.0.8",
+    "fastify": "^5.12.7",
+    "pg": "^8.23.1",
+    "pg-boss": "^10.4.2"
+  },
+  "allowScripts": {
+    "@prisma/client@7.10.1": true,
+    "@prisma/engines@7.10.1": true,
+    "esbuild@0.28.2": true,
+    "prisma@7.10.1": true
+  }
+}
